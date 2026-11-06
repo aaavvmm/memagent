@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 记忆条目模型
 ============
@@ -10,6 +9,7 @@
   - 分层(tier): pinned(过敏等安全事实, 永不遗忘) / normal(偏好事实, 慢衰减)
     / ephemeral(临时上下文, 快衰减) —— 遗忘策略按层定制
 """
+
 import time
 import uuid
 
@@ -18,8 +18,10 @@ TIER_TAU = {"pinned": None, "normal": 30.0, "ephemeral": 3.0}
 
 # 槽位 → 默认分层 (安全/健康类事实必须 pinned, 临时计划 ephemeral)
 SLOT_TIER = {
-    "allergy": "pinned", "health": "pinned",
-    "name": "pinned", "birthday": "pinned",
+    "allergy": "pinned",
+    "health": "pinned",
+    "name": "pinned",
+    "birthday": "pinned",
     "plan": "ephemeral",
 }
 
@@ -28,11 +30,23 @@ SAFETY_SLOTS = {"allergy", "health"}
 
 
 class MemoryItem:
-    __slots__ = ("id", "slot", "value", "tier", "source_session", "created_at",
-                 "last_used", "score", "superseded_by", "text", "evidence")
+    __slots__ = (
+        "id",
+        "slot",
+        "value",
+        "tier",
+        "source_session",
+        "created_at",
+        "last_used",
+        "score",
+        "superseded_by",
+        "text",
+        "evidence",
+    )
 
-    def __init__(self, slot: str, value: str, source_session: str,
-                 text: str = "", tier: str | None = None):
+    def __init__(
+        self, slot: str, value: str, source_session: str, text: str = "", tier: str | None = None
+    ):
         self.id = uuid.uuid4().hex[:8]
         self.slot = slot
         self.value = value
@@ -41,15 +55,21 @@ class MemoryItem:
         self.source_session = source_session
         self.created_at = time.time()
         self.last_used = self.created_at
-        self.score = 1.0              # 检索时动态计算
+        self.score = 1.0  # 检索时动态计算
         self.superseded_by: str | None = None
-        self.evidence = text          # 原句(来源可审计)
+        self.evidence = text  # 原句(来源可审计)
 
     def to_dict(self) -> dict:
-        return {"id": self.id, "slot": self.slot, "value": self.value,
-                "tier": self.tier, "source_session": self.source_session,
-                "created_at": self.created_at, "superseded_by": self.superseded_by,
-                "text": self.text}
+        return {
+            "id": self.id,
+            "slot": self.slot,
+            "value": self.value,
+            "tier": self.tier,
+            "source_session": self.source_session,
+            "created_at": self.created_at,
+            "superseded_by": self.superseded_by,
+            "text": self.text,
+        }
 
 
 def now() -> float:

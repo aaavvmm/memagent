@@ -1,3 +1,2 @@
-# -*- coding: utf-8 -*-
-from .bench import run_bench, print_report          # noqa: F401
-from .scenarios import build, Scenario, Probe       # noqa: F401
+from .bench import print_report, run_bench  # noqa: F401
+from .scenarios import Probe, Scenario, build  # noqa: F401

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 自建中文记忆评测集: 场景生成器
 ==============================
@@ -13,6 +12,7 @@
   - 评测只打记忆系统: 抽取用确定性规则, 探测答案为槽位精确匹配
   - seed 固定 → 完全可复现
 """
+
 import random
 from dataclasses import dataclass, field
 
@@ -20,8 +20,13 @@ DRINKS = ["拿铁", "美式", "摩卡", "龙井", "普洱", "气泡水", "乌龙
 CITIES = ["杭州", "上海", "北京", "深圳", "成都", "广州", "武汉", "南京"]
 PETS = ["金毛", "柯基", "布偶猫", "橘猫", "柴犬", "英短", "仓鼠", "兔子"]
 ALLERGIES = ["花生", "芒果", "海鲜", "花粉", "鸡蛋", "青霉素"]
-JOBS = [("字节跳动", "上班"), ("腾讯", "工作"), ("华为", "上班"),
-        ("一家中学", "教书"), ("研究所", "做研究")]
+JOBS = [
+    ("字节跳动", "上班"),
+    ("腾讯", "工作"),
+    ("华为", "上班"),
+    ("一家中学", "教书"),
+    ("研究所", "做研究"),
+]
 PREFS = ["摄影", "徒步", "科幻电影", "羽毛球", "做饭", "滑雪"]
 DISLIKES = ["香菜", "恐怖片", "加班", "剧本杀"]
 NAMES = ["小林", "阿哲", "晓雯", "志强", "雨桐", "大白"]
@@ -33,21 +38,25 @@ SESSION_DAYS = {"s1": 0, "s2": 3, "s3": 10, "s4": 40}
 
 @dataclass
 class Probe:
-    qtype: str          # T1..T5
+    qtype: str  # T1..T5
     question: str
-    expected: str       # 槽位值精确匹配
+    expected: str  # 槽位值精确匹配
     slot: str
 
 
 @dataclass
 class Scenario:
     sid: str
-    events: list[tuple[str, str]] = field(default_factory=list)   # (session, utterance)
+    events: list[tuple[str, str]] = field(default_factory=list)  # (session, utterance)
     probes: list[Probe] = field(default_factory=list)
 
 
-FILLER = ["今天天气不错, 心情挺好。", "最近在忙一个项目, 挺累的。",
-          "周末去逛了逛商场。", "昨晚看了场球赛, 很精彩。"]
+FILLER = [
+    "今天天气不错, 心情挺好。",
+    "最近在忙一个项目, 挺累的。",
+    "周末去逛了逛商场。",
+    "昨晚看了场球赛, 很精彩。",
+]
 
 
 def make_scenario(rng: random.Random, sid: str) -> Scenario:
@@ -62,14 +71,17 @@ def make_scenario(rng: random.Random, sid: str) -> Scenario:
     dislike = rng.choice(DISLIKES)
 
     # ---- s1: 基础事实(名字/城市/饮品/宠物/过敏) ----
-    e1 = [f"你好, 我叫{name}。", f"我住在{city1}。",
-          f"我平时喝{drink1}。"]
+    e1 = [f"你好, 我叫{name}。", f"我住在{city1}。", f"我平时喝{drink1}。"]
     has_allergy = rng.random() < 0.7
     if has_allergy:
         e1.append(f"我对{allergy}过敏。")
     # ---- s2: 干扰会话(偏好/工作/宠物, 与 s1 事实无关) ----
-    e2 = [f"我最近喜欢{pref}。", f"我在{job}{verb}。",
-          f"我养了一只{pet}。", f"我不太喜欢{dislike}。"]
+    e2 = [
+        f"我最近喜欢{pref}。",
+        f"我在{job}{verb}。",
+        f"我养了一只{pet}。",
+        f"我不太喜欢{dislike}。",
+    ]
     # ---- s3: 更新会话(城市迁移/饮品更换) ----
     e3 = [f"我搬到{city2}了。", f"我改喝{drink2}了。"]
     # ---- s4: 探测会话(只寒暄) ----
@@ -79,7 +91,7 @@ def make_scenario(rng: random.Random, sid: str) -> Scenario:
         for t in evs:
             sc.events.append((sess, t))
         sc.events.append((sess, rng.choice(FILLER)))
-        sc.events.append((sess, f"这周末我打算{rng.choice(PLANS)}。"))   # ephemeral 噪声
+        sc.events.append((sess, f"这周末我打算{rng.choice(PLANS)}。"))  # ephemeral 噪声
 
     # ---- 探测集 ----
     sc.probes += [
@@ -91,7 +103,7 @@ def make_scenario(rng: random.Random, sid: str) -> Scenario:
         Probe("T4", "我以前住哪个城市?", city1, "city"),
         Probe("T5", "我的宠物是什么?", pet, "pet"),
     ]
-    if has_allergy:             # 与事件同一次抽签 —— 事件与探测严格配对
+    if has_allergy:  # 与事件同一次抽签 —— 事件与探测严格配对
         sc.probes.append(Probe("T4", "我对什么过敏?", allergy, "allergy"))
     return sc
 
@@ -107,6 +119,7 @@ def build(n_scenarios: int = 70, seed: int = 7) -> list[Scenario]:
 #   ① pinned 保护: 过敏记忆在 270 天后是否还在(关分层 → 被遗忘清除)
 #   ② 冲突链: "现在住哪" 须答最后一个城市
 #   ③ 存储有界性: 遗忘开启时 ephemeral 被清扫, 关闭时无界增长
+
 
 def make_longterm(rng: random.Random, sid: str) -> Scenario:
     sc = Scenario(sid)

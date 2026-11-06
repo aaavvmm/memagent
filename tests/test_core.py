@@ -1,5 +1,5 @@
-# -*- coding: utf-8 -*-
 """核心功能测试: 抽取 / 冲突消解 / 分级遗忘 / 检索 / 评测集冒烟。"""
+
 import os
 import sys
 
@@ -12,8 +12,8 @@ from memagent.models import MemoryItem
 from memagent.retrieve import Retriever
 from memagent.store import MemoryStore
 
-
 # ---------- 抽取 ----------
+
 
 def test_extract_basic_slots():
     ex = RuleExtractor()
@@ -42,7 +42,7 @@ def test_extract_no_false_positive_on_job():
     ex = RuleExtractor()
     items = ex.extract("我在字节跳动上班。", "s2")
     slots = {i.slot for i in items}
-    assert "city" not in slots          # 不能把公司名当城市
+    assert "city" not in slots  # 不能把公司名当城市
     assert "job" in slots
 
 
@@ -55,6 +55,7 @@ def test_extract_allergy():
 
 # ---------- 冲突消解 ----------
 
+
 def test_conflict_supersedes_and_archives():
     asst = MemoryAssistant()
     asst.chat("s1", "我住在杭州。")
@@ -62,7 +63,7 @@ def test_conflict_supersedes_and_archives():
     r = asst.ask("我现在住哪个城市?")
     assert r["answer"] == "上海"
     r2 = asst.ask("我以前住哪个城市?")
-    assert r2["answer"] == "杭州"       # 版本链保留旧值
+    assert r2["answer"] == "杭州"  # 版本链保留旧值
 
 
 def test_no_conflict_keeps_both():
@@ -70,7 +71,7 @@ def test_no_conflict_keeps_both():
     asst.chat("s1", "我住在杭州。")
     asst.chat("s3", "我搬到上海了。")
     cities = [i.value for i in asst.store.active(slot="city")]
-    assert sorted(cities) == ["上海", "杭州"]   # 两个都活跃 → 检索有歧义
+    assert sorted(cities) == ["上海", "杭州"]  # 两个都活跃 → 检索有歧义
 
 
 def test_duplicate_not_readded():
@@ -83,10 +84,11 @@ def test_duplicate_not_readded():
 
 # ---------- 分级遗忘 ----------
 
+
 def test_pinned_never_expires():
     store = MemoryStore()
     a = MemoryItem("allergy", "花生", "s1")
-    a.created_at = a.last_used = 0.0     # 极老
+    a.created_at = a.last_used = 0.0  # 极老
     store.add(a)
     expired = Forgetter().sweep(store, now_ts=1000 * 86400.0)
     assert expired == []
@@ -105,6 +107,7 @@ def test_ephemeral_expires():
 
 # ---------- 检索 ----------
 
+
 def test_retriever_slot_prior():
     r = Retriever()
     a = MemoryItem("city", "杭州", "s1")
@@ -115,8 +118,22 @@ def test_retriever_slot_prior():
 
 # ---------- 评测集冒烟 ----------
 
+
 def test_bench_smoke():
     from memagent.eval.bench import run_bench
+
     res = run_bench(n_scenarios=6)
     assert 0.0 <= res["full"]["acc_overall"] <= 1.0
     assert res["full"]["n_probes"] > 0
+
+
+def test_schema_version_recorded():
+    store = MemoryStore()
+    ver = store.conn.execute("SELECT value FROM _meta WHERE key='schema_version'").fetchone()
+    assert ver and int(ver[0]) >= 1
+
+
+def test_wal_mode_active():
+
+    store = MemoryStore()
+    assert store.conn.execute("PRAGMA journal_mode").fetchone()[0] in ("wal", "memory")

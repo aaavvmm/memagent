@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 MemoryAssistant —— 应用外壳: 多会话私人助理
 ===========================================
@@ -11,37 +10,58 @@ MemoryAssistant —— 应用外壳: 多会话私人助理
 virtual clock 可注入(clock 参数): 评测里会话间隔以"天"推进,
 真实使用传默认系统时钟 —— 同一套代码两种时间语义。
 """
+
+import json
+import logging
+import sys
 import time
 
 from .extract import RuleExtractor
 from .forget import Forgetter
-from .models import SAFETY_SLOTS, SLOT_TIER
+from .models import SAFETY_SLOTS
 from .retrieve import QUESTION_SLOTS, Retriever
 from .store import MemoryStore
 
 PAST_HINTS = ("以前", "之前", "原来", "过去", "曾经", "上一次")
 
+log = logging.getLogger("memagent")
+if not log.handlers:  # JSON 行日志走 stderr —— stdout 可能是协议/交互通道
+    _h = logging.StreamHandler(sys.stderr)
+    _h.setFormatter(logging.Formatter("%(message)s"))
+    log.addHandler(_h)
+    log.setLevel(logging.INFO)
+
+
+def _jlog(event: str, **kw) -> None:
+    log.info(json.dumps({"event": event, **kw}, ensure_ascii=False))
+
 
 class MemoryAssistant:
-    def __init__(self, db_path: str = ":memory:",
-                 extractor=None, retriever: Retriever | None = None,
-                 resolve_conflicts: bool = True, forget: bool = True,
-                 tier_aware: bool = True, slot_boost: float = 3.0,
-                 clock=time.time):
+    def __init__(
+        self,
+        db_path: str = ":memory:",
+        extractor=None,
+        retriever: Retriever | None = None,
+        resolve_conflicts: bool = True,
+        forget: bool = True,
+        tier_aware: bool = True,
+        slot_boost: float = 3.0,
+        clock=time.time,
+    ):
         self.clock = clock
         self.store = MemoryStore(db_path, resolve_conflicts=resolve_conflicts)
         self.extractor = extractor or RuleExtractor()
         self.retriever = retriever or Retriever(slot_boost=slot_boost)
         self.forgetter = Forgetter(enabled=forget)
-        self.tier_aware = tier_aware       # 消融开关: False → 全部按 normal 层(安全事实失去保护)
-        self.events: list[dict] = []       # 会话事件日志(报告/审计)
+        self.tier_aware = tier_aware  # 消融开关: False → 全部按 normal 层(安全事实失去保护)
+        self.events: list[dict] = []  # 会话事件日志(报告/审计)
 
     # ---------- 主流程 ----------
 
     def chat(self, session: str, text: str) -> dict:
         items = self.extractor.extract(text, session)
         for it in items:
-            it.created_at = it.last_used = self.clock()   # 统一虚拟时钟(评测可注入)
+            it.created_at = it.last_used = self.clock()  # 统一虚拟时钟(评测可注入)
         if not self.tier_aware:
             for it in items:
                 it.tier = "normal"
@@ -54,10 +74,24 @@ class MemoryAssistant:
         if hits:
             self.store.touch([c.id for c in hits], now_ts=self.clock())
         remembered = [a for a in actions if a["action"] == "added"]
-        result = {"remembered": remembered, "expired": expired,
-                  "context": [c.to_dict() for c in ranked]}
-        self.events.append({"session": session, "text": text,
-                            "remembered": remembered, "expired": expired})
+        result = {
+            "remembered": remembered,
+            "expired": expired,
+            "context": [c.to_dict() for c in ranked],
+        }
+        self.events.append(
+            {"session": session, "text": text, "remembered": remembered, "expired": expired}
+        )
+        for a in remembered:
+            _jlog(
+                "memory_added",
+                session=session,
+                slot=a["slot"],
+                value=a["value"],
+                superseded=len(a["superseded"]),
+            )
+        if expired:
+            _jlog("memories_expired", session=session, n=len(expired))
         return result
 
     def ask(self, question: str) -> dict:
@@ -70,8 +104,8 @@ class MemoryAssistant:
         ranked = self.retriever.top(question, self.store.active(), now_ts=self.clock())
         self.store.touch([c.id for c in ranked if c.score > 0.05], now_ts=self.clock())
         hit = next((it for it in ranked if it.slot in qslots), None)
-        if not hit and qslots:      # 无词法命中时按槽位直查(兜底)
-            cands = [it for it in self.store.active(slot=qslots[0])]
+        if not hit and qslots:  # 无词法命中时按槽位直查(兜底)
+            cands = self.store.active(slot=qslots[0])
             hit = cands[-1] if cands else None
         # pinned(安全类)记忆常驻上下文: 与问题无关也带上 —— 点单场景主动浮现过敏
         mems = [c.to_dict() for c in ranked[:4]]
@@ -79,36 +113,52 @@ class MemoryAssistant:
             if m["tier"] == "pinned" and m["slot"] in SAFETY_SLOTS:
                 m["always"] = True
         in_ids = {m["id"] for m in mems}
-        mems += [p.to_dict() | {"always": True} for p in self.store.active()
-                 if p.tier == "pinned" and p.slot in SAFETY_SLOTS and p.id not in in_ids]
-        return {"answer": hit.value if hit else None,
-                "slot": hit.slot if hit else (qslots[0] if qslots else None),
-                "memories": mems}
+        mems += [
+            p.to_dict() | {"always": True}
+            for p in self.store.active()
+            if p.tier == "pinned" and p.slot in SAFETY_SLOTS and p.id not in in_ids
+        ]
+        return {
+            "answer": hit.value if hit else None,
+            "slot": hit.slot if hit else (qslots[0] if qslots else None),
+            "memories": mems,
+        }
 
     def _ask_past(self, question: str, slot: str) -> dict:
         hist = self.store.history(slot)
         superseded = [h for h in hist if h.superseded_by]
         old = superseded[0] if superseded else (hist[0] if len(hist) > 1 else None)
-        return {"answer": old.value if old else None, "slot": slot,
-                "memories": [h.to_dict() for h in hist]}
+        return {
+            "answer": old.value if old else None,
+            "slot": slot,
+            "memories": [h.to_dict() for h in hist],
+        }
 
     # ---------- 记忆面板(应用外壳的"看得见"部分) ----------
 
     def memory_panel(self) -> list[dict]:
         out = []
-        for it in sorted(self.store.active(),
-                         key=lambda x: {"pinned": 0, "normal": 1}.get(x.tier, 2)):
+        for it in sorted(
+            self.store.active(), key=lambda x: {"pinned": 0, "normal": 1}.get(x.tier, 2)
+        ):
             hist = self.store.history(it.slot)
-            out.append({"slot": it.slot, "value": it.value, "tier": it.tier,
-                        "source_session": it.source_session,
-                        "evidence": it.evidence,
-                        "versions": len(hist),
-                        "pinned": it.tier == "pinned"})
+            out.append(
+                {
+                    "slot": it.slot,
+                    "value": it.value,
+                    "tier": it.tier,
+                    "source_session": it.source_session,
+                    "evidence": it.evidence,
+                    "versions": len(hist),
+                    "pinned": it.tier == "pinned",
+                }
+            )
         return out
 
     def edit_memory(self, slot: str, value: str, session: str = "user_edit") -> dict:
         """用户手工修正 —— 走与对话抽取相同的冲突消解通道。"""
         from .models import MemoryItem
+
         it = MemoryItem(slot, value, session, text=f"(手工修正) {slot}={value}")
         it.created_at = it.last_used = self.clock()
         return self.store.add(it)
@@ -121,10 +171,12 @@ class MemoryAssistant:
     # ---------- 统计 ----------
 
     def stats(self) -> dict:
-        tiers = {}
+        tiers: dict[str, int] = {}
         for it in self.store.all(include_archived=True):
             tiers[it.tier] = tiers.get(it.tier, 0) + 1
-        return {"n_total": self.store.n_items(),
-                "n_active": len(self.store.active()),
-                "tiers": tiers,
-                "n_events": len(self.events)}
+        return {
+            "n_total": self.store.n_items(),
+            "n_active": len(self.store.active()),
+            "tiers": tiers,
+            "n_events": len(self.events),
+        }

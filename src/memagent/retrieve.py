@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 检索: BM25 式词频匹配 × 新近度 × 重要性(分层)
 ==============================================
@@ -8,25 +7,41 @@ score = bm25 × (1 + w_rec·recency) × (1 + w_tier·tier_boost) × slot_match_b
 槽位直配 boost: 问题里出现"住/住哪"直接命中 city 槽 —— 模拟真实系统中
 槽位元数据对检索的强先验, 也是消融里"纯文本检索 vs 结构化检索"的对照。
 """
+
 import math
 import re
 import time
 
-from .models import MemoryItem, TIER_TAU
+from .models import MemoryItem
 
 TIER_BOOST = {"pinned": 0.5, "normal": 0.0, "ephemeral": -0.2}
 
 # 问题词 → 槽位先验(中文检索的实用设计: 问题里 explicit 问"住哪"就该查 city)
 QUESTION_SLOTS = {
-    "住": "city", "住在": "city", "搬家": "city", "城市": "city",
-    "喝": "drink", "咖啡": "drink", "奶茶": "drink", "饮品": "drink",
-    "养": "pet", "猫": "pet", "狗": "pet", "宠物": "pet",
-    "过敏": "allergy", "忌口": "allergy",
-    "叫什么": "name", "名字": "name",
-    "工作": "job", "上班": "job", "跳槽": "job",
+    "住": "city",
+    "住在": "city",
+    "搬家": "city",
+    "城市": "city",
+    "喝": "drink",
+    "咖啡": "drink",
+    "奶茶": "drink",
+    "饮品": "drink",
+    "养": "pet",
+    "猫": "pet",
+    "狗": "pet",
+    "宠物": "pet",
+    "过敏": "allergy",
+    "忌口": "allergy",
+    "叫什么": "name",
+    "名字": "name",
+    "工作": "job",
+    "上班": "job",
+    "跳槽": "job",
     "生日": "birthday",
-    "喜欢": "preference", "讨厌": "dislike",
-    "生病": "health", "不舒服": "health",
+    "喜欢": "preference",
+    "讨厌": "dislike",
+    "生病": "health",
+    "不舒服": "health",
 }
 
 
@@ -35,14 +50,19 @@ def _tokens(text: str) -> list[str]:
     text = text.lower()
     out = re.findall(r"[a-z0-9]+", text)
     han = re.findall(r"[一-龥]", text)
-    out += [a + b for a, b in zip(han, han[1:])]      # bigram 主力
-    out += han                                        # 单字兜底
+    out += [a + b for a, b in zip(han, han[1:], strict=False)]  # bigram 主力
+    out += han  # 单字兜底
     return out
 
 
 class Retriever:
-    def __init__(self, w_rec: float = 0.3, w_tier: float = 1.0,
-                 slot_boost: float = 3.0, half_life_days: float = 14.0):
+    def __init__(
+        self,
+        w_rec: float = 0.3,
+        w_tier: float = 1.0,
+        slot_boost: float = 3.0,
+        half_life_days: float = 14.0,
+    ):
         self.w_rec = w_rec
         self.w_tier = w_tier
         self.slot_boost = slot_boost
@@ -70,8 +90,9 @@ class Retriever:
         tb = 1.0 + self.w_tier * TIER_BOOST.get(item.tier, 0.0)
         return base * (1 + self.w_rec * rec) * sb * tb
 
-    def top(self, query: str, items: list[MemoryItem], k: int = 4,
-            now_ts: float | None = None) -> list[MemoryItem]:
+    def top(
+        self, query: str, items: list[MemoryItem], k: int = 4, now_ts: float | None = None
+    ) -> list[MemoryItem]:
         now_ts = now_ts if now_ts is not None else time.time()
         for it in items:
             it.score = self.score(query, it, now_ts)

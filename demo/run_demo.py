@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 一键演示: "真正记得你的助理" 三幕剧
 ====================================
@@ -7,6 +6,7 @@
 第三幕 s4: 隔了 30 天回来问问题 → 看跨会话记忆与时序问答
 最后: 打开记忆面板(每条记忆带来源/时间/版本链/钉住标记)
 """
+
 import io
 import os
 import sys
@@ -28,7 +28,11 @@ def say(asst, session, text):
     r = asst.chat(session, text)
     print(f"  [{session}] 你: {text}")
     for a in r["remembered"]:
-        old = f" (更新: {a['slot']} 旧值「{a['superseded'][0]['value']}」已归档)" if a["superseded"] else ""
+        old = (
+            f" (更新: {a['slot']} 旧值「{a['superseded'][0]['value']}」已归档)"
+            if a["superseded"]
+            else ""
+        )
         print(f"        助理: 📌 我记住了 {a['slot']} = {a['value']}{old}")
     if r["expired"]:
         print(f"        助理: 🧹 清理了 {len(r['expired'])} 条过期记忆")
@@ -37,8 +41,10 @@ def say(asst, session, text):
 def ask(asst, q):
     r = asst.ask(q)
     print(f"  你: {q}")
-    print(f"        助理: {r['answer'] or '(我不记得这个)'}"
-          f"   [依据: {r['slot']} 槽位, 引用 {len(r['memories'])} 条记忆]")
+    print(
+        f"        助理: {r['answer'] or '(我不记得这个)'}"
+        f"   [依据: {r['slot']} 槽位, 引用 {len(r['memories'])} 条记忆]"
+    )
     # pinned(安全类)记忆常驻上下文: 相关场景主动提醒
     for m in r["memories"]:
         if m.get("always") and m["slot"] != r["slot"]:
@@ -62,19 +68,21 @@ def main():
     print("第三幕 · 第 45 天: 隔一个月回来 (跨会话记忆 + 时序问答)")
     print("=" * 62)
     state["day"] = 45
-    ask(asst, "我现在住哪个城市?")          # → 上海 (新值)
-    ask(asst, "我以前住哪个城市?")          # → 杭州 (版本链)
-    ask(asst, "我现在喝什么?")              # → 美式
-    ask(asst, "点咖啡时有什么要注意的?")     # → 花生过敏 (pinned 永不忘)
-    ask(asst, "我叫什么名字?")              # → 小林
+    ask(asst, "我现在住哪个城市?")  # → 上海 (新值)
+    ask(asst, "我以前住哪个城市?")  # → 杭州 (版本链)
+    ask(asst, "我现在喝什么?")  # → 美式
+    ask(asst, "点咖啡时有什么要注意的?")  # → 花生过敏 (pinned 永不忘)
+    ask(asst, "我叫什么名字?")  # → 小林
 
     print("\n" + "=" * 62)
     print("记忆面板 (每条记忆: 值/来源/证据原句/版本数, 📍=pinned)")
     print("=" * 62)
     for m in asst.memory_panel():
         pin = "📍" if m["pinned"] else "  "
-        print(f"  {pin} {m['slot']:<11} = {m['value']:<6} "
-              f"[{m['source_session']} 录入, 版本×{m['versions']}] 证据: {m['evidence'][:24]}…")
+        print(
+            f"  {pin} {m['slot']:<11} = {m['value']:<6} "
+            f"[{m['source_session']} 录入, 版本×{m['versions']}] 证据: {m['evidence'][:24]}…"
+        )
     print(f"\n统计: {asst.stats()}")
 
 
