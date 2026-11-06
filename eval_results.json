@@ -1,0 +1,85 @@
+{
+ "standard": {
+  "full": {
+   "acc_by_type": {
+    "T1": 1.0,
+    "T2": 1.0,
+    "T3": 1.0,
+    "T4": 1.0,
+    "T5": 1.0
+   },
+   "acc_overall": 1.0,
+   "n_probes": 541,
+   "stale_rate": 0.0,
+   "avg_memories_per_scenario": 11.6
+  },
+  "no_conflict": {
+   "acc_by_type": {
+    "T1": 1.0,
+    "T2": 1.0,
+    "T3": 0.0,
+    "T4": 1.0,
+    "T5": 1.0
+   },
+   "acc_overall": 0.741,
+   "n_probes": 541,
+   "stale_rate": 0.259,
+   "avg_memories_per_scenario": 10.7
+  },
+  "no_forget": {
+   "acc_by_type": {
+    "T1": 1.0,
+    "T2": 1.0,
+    "T3": 1.0,
+    "T4": 1.0,
+    "T5": 1.0
+   },
+   "acc_overall": 1.0,
+   "n_probes": 541,
+   "stale_rate": 0.0,
+   "avg_memories_per_scenario": 13.2
+  },
+  "no_tier": {
+   "acc_by_type": {
+    "T1": 1.0,
+    "T2": 1.0,
+    "T3": 1.0,
+    "T4": 1.0,
+    "T5": 1.0
+   },
+   "acc_overall": 1.0,
+   "n_probes": 541,
+   "stale_rate": 0.0,
+   "avg_memories_per_scenario": 13.2
+  }
+ },
+ "longterm": {
+  "full": {
+   "acc_by_type": {
+    "LT-allergy": 1.0,
+    "LT-city": 1.0,
+    "LT-drink": 1.0
+   },
+   "acc_allergy": 1.0,
+   "avg_memories": 19.6
+  },
+  "no_forget": {
+   "acc_by_type": {
+    "LT-allergy": 1.0,
+    "LT-city": 1.0,
+    "LT-drink": 1.0
+   },
+   "acc_allergy": 1.0,
+   "avg_memories": 27.1
+  },
+  "no_tier": {
+   "acc_by_type": {
+    "LT-allergy": 0.0,
+    "LT-city": 1.0,
+    "LT-drink": 1.0
+   },
+   "acc_allergy": 0.0,
+   "avg_memories": 26.1
+  }
+ }
+}

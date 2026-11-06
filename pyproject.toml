@@ -1,0 +1,16 @@
+[project]
+name = "memagent"
+version = "0.1.0"
+description = "分层记忆系统 + 自建中文记忆评测集 —— 跨会话记忆/冲突消解/分级遗忘"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.optional-dependencies]
+eval = ["matplotlib"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
