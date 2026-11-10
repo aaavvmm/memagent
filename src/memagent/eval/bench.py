@@ -4,7 +4,7 @@
 实验一(标准): 70 场景 × 5 类探测, 准确率 + staleness
 实验二(长期): 20 场景 × 270 天演化, 考 pinned 保护 / 冲突链 / 存储有界性
 消融: full / no_conflict / no_forget / no_tier
-输出: 终端表格 + eval_results.json(供简历数字引用)
+输出: 终端表格 + eval_results.json(供结果分析引用)
 """
 
 import json
